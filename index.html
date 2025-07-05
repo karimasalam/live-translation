@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Speech Translation</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f7fa;
+        color: #333;
+      }
+      header {
+        background: #4f46e5;
+        color: white;
+        padding: 1rem 2rem;
+        text-align: center;
+      }
+      main {
+        max-width: 800px;
+        margin: 2rem auto;
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .controls {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      select,
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+      }
+      .transcript,
+      .translation {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 1rem;
+        min-height: 5rem;
+        white-space: pre-wrap;
+      }
+      .translation {
+        max-height: 40vh;
+        overflow-y: auto;
+      }
+      .translation p {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin: 0 0 .75rem;
+        line-height: 1.4;
+
+      }
+      .label {
+        font-weight: bold;
+        margin-top: 1rem;
+        margin-bottom: 0.25rem;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Live Speech Transcription & Translation</h1>
+    </header>
+    <main>
+      <div id="root"></div>
+    </main>
+
+    <!-- React CDN -->
+    <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState, useRef, useEffect } = React;
+
+      function App() {
+        const [sourceLang, setSourceLang] = useState('ur-PK');
+        const [targetLang, setTargetLang] = useState('en');
+        const [listening, setListening] = useState(false);
+        const [finalText, setFinalText] = useState('');
+        const [interimText, setInterimText] = useState('');
+        const [chunks, setChunks] = useState([]);
+        const [interimTranslation, setInterimTranslation] = useState('');
+        const translationRef = useRef(null);
+        const recognitionRef = useRef(null);
+
+        useEffect(() => {
+          const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+          if (!SpeechRecognition) {
+            alert('Your browser does not support Speech Recognition API');
+            return;
+          }
+          const recognition = new SpeechRecognition();
+          recognition.lang = sourceLang;
+          recognition.interimResults = true;
+          recognition.continuous = true;
+
+          recognition.onresult = (event) => {
+            let finalChunk = '';
+            let interimChunk = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              const res = event.results[i];
+              if (res.isFinal) {
+                finalChunk += res[0].transcript;
+              } else {
+                interimChunk += res[0].transcript;
+              }
+            }
+            if (finalChunk) {
+              setFinalText((prev) => `${prev} ${finalChunk}`.trim());
+              setInterimText('');
+              translateText(finalChunk);
+            }
+            if (interimChunk) {
+              clearTimeout(translateTimeout);
+              translateTimeout = setTimeout(() => {
+                translateText(interimChunk, true);
+              }, 500);
+              setInterimText(interimChunk);
+            }
+          };
+
+          recognition.onerror = (e) => console.error('Speech recognition error', e);
+          recognition.onend = () => {
+            if (listening) recognition.start(); // auto-restart if we didn't stop intentionally
+          };
+
+          recognitionRef.current = recognition;
+        }, [sourceLang, listening]);
+
+        let translateTimeout;
+        useEffect(() => {
+          if (translationRef.current) {
+            translationRef.current.scrollTop = translationRef.current.scrollHeight;
+          }
+        }, [chunks, interimTranslation]);
+        const translateText = async (text, replace = false) => {
+          try {
+            const safeText = text.length > 450 ? text.slice(-450) : text;
+            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(safeText)}&langpair=${sourceLang.split('-')[0]}|${targetLang.split('-')[0]}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const translated = data.responseData ? data.responseData.translatedText : (data.translatedText || '');
+            if (replace) {
+              setInterimTranslation(translated);
+            } else {
+              setChunks((prev) => [...prev, translated]);
+              setInterimTranslation('');
+            }
+          } catch (err) {
+            console.error('Translation error', err);
+          }
+        };
+
+        const toggleListening = () => {
+          if (!recognitionRef.current) return;
+          if (!listening) {
+            recognitionRef.current.lang = sourceLang;
+            recognitionRef.current.start();
+          } else {
+            recognitionRef.current.stop();
+          }
+          setListening((prev) => !prev);
+        };
+
+        const resetAll = () => {
+          if (listening && recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
+          setListening(false);
+          setFinalText('');
+          setInterimText('');
+          setChunks([]);
+          setInterimTranslation('');
+        };
+
+        return (
+          <div>
+            <div className="controls">
+              <label>
+                Source Language:&nbsp;
+                <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
+                   <option value="ur-PK">Urdu</option>
+                   <option value="ar-SA">Arabic</option>
+                </select>
+              </label>
+              <label>
+                Target Language:&nbsp;
+                <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <button onClick={toggleListening}>
+                {listening ? 'Stop' : 'Start'} Listening
+              </button>
+              <button onClick={resetAll}>
+                Reset
+              </button>
+            </div>
+            <div>
+              <span className="label">Transcript ({sourceLang}):</span>
+              <div className="transcript">{`${finalText}${interimText ? ` [interim] ${interimText}` : ''}`}</div>
+            </div>
+            <div>
+              <span className="label">Translation ({targetLang}):</span>
+              <div className="translation" ref={translationRef}>{chunks.map((c, i) => <p key={i}>{c}</p>)}{interimTranslation && <p style={{ opacity: 0.6 }}>{interimTranslation}</p>}</div>
+            </div>
+          </div>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+  </body>
+</html>

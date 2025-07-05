@@ -89,18 +89,37 @@
         const [interimText, setInterimText] = useState('');
         const [chunks, setChunks] = useState([]);
         const [interimTranslation, setInterimTranslation] = useState('');
+        const listeningRef = useRef(listening);
+        const sourceLangRef = useRef(sourceLang);
+        const targetLangRef = useRef(targetLang);
         const translationRef = useRef(null);
         const recognitionRef = useRef(null);
 
         useEffect(() => {
-          const SpeechRecognition =
-            window.SpeechRecognition || window.webkitSpeechRecognition;
+          listeningRef.current = listening;
+        }, [listening]);
+
+        useEffect(() => {
+          sourceLangRef.current = sourceLang;
+        }, [sourceLang]);
+
+        useEffect(() => {
+          targetLangRef.current = targetLang;
+        }, [targetLang]);
+
+        useEffect(() => {
+          if (recognitionRef.current) {
+            recognitionRef.current.lang = sourceLang;
+          }
+        }, [sourceLang]);
+
+        useEffect(() => {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
           if (!SpeechRecognition) {
             alert('Your browser does not support Speech Recognition API');
             return;
           }
           const recognition = new SpeechRecognition();
-          recognition.lang = sourceLang;
           recognition.interimResults = true;
           recognition.continuous = true;
 
@@ -131,11 +150,11 @@
 
           recognition.onerror = (e) => console.error('Speech recognition error', e);
           recognition.onend = () => {
-            if (listening) recognition.start(); // auto-restart if we didn't stop intentionally
+            if (listeningRef.current) recognition.start();
           };
 
           recognitionRef.current = recognition;
-        }, [sourceLang, listening]);
+        }, []);
 
         let translateTimeout;
         useEffect(() => {
@@ -143,10 +162,13 @@
             translationRef.current.scrollTop = translationRef.current.scrollHeight;
           }
         }, [chunks, interimTranslation]);
+
         const translateText = async (text, replace = false) => {
           try {
             const safeText = text.length > 450 ? text.slice(-450) : text;
-            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(safeText)}&langpair=${sourceLang.split('-')[0]}|${targetLang.split('-')[0]}`;
+            const src = sourceLangRef.current.split('-')[0];
+            const trg = targetLangRef.current.split('-')[0];
+            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(safeText)}&langpair=${src}|${trg}`;
             const res = await fetch(url);
             const data = await res.json();
             const translated = data.responseData ? data.responseData.translatedText : (data.translatedText || '');
@@ -191,12 +213,15 @@
                 <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
                    <option value="ur-PK">Urdu</option>
                    <option value="ar-SA">Arabic</option>
+                   <option value="en">English</option>
                 </select>
               </label>
               <label>
                 Target Language:&nbsp;
                 <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
                   <option value="en">English</option>
+                  <option value="ur-PK">Urdu</option>
+                  <option value="ar-SA">Arabic</option>
                 </select>
               </label>
               <button onClick={toggleListening}>

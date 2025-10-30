@@ -10,21 +10,21 @@
         font-family: Arial, Helvetica, sans-serif;
         margin: 0;
         padding: 0;
-        background: #f5f7fa;
-        color: #333;
+        background: #0838CC; /* vivid blue */
+        color: #ffea00; /* brighter yellow */
       }
       header {
-        background: #4f46e5;
-        color: white;
+        background: #0838CC;
+        color: inherit;
         padding: 1rem 2rem;
         text-align: center;
       }
       main {
         margin: 2rem auto;
-        background: white;
+        background: transparent;
         padding: 2rem;
         border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: none;
       }
       .controls {
         display: flex;
@@ -36,17 +36,25 @@
       button {
         padding: 0.5rem 1rem;
         font-size: 1rem;
+        color: inherit;
+        background: rgba(0, 0, 0, 0.1);
+        border: 1px solid #ffea00;
+        border-radius: 6px;
+      }
+      button:hover {
+        background: rgba(0, 0, 0, 0.2);
       }
       .transcript,
       .translation {
-        border: 1px solid #ddd;
+        border: 1px solid #ffea00;
         border-radius: 6px;
         padding: 1rem;
         min-height: 5rem;
         white-space: pre-wrap;
+        background: transparent;
       }
       .translation {
-        max-height: 40vh;
+        max-height: 60vh;
         overflow-y: auto;
       }
       .translation p {
@@ -88,6 +96,7 @@
         const [interimText, setInterimText] = useState('');
         const [chunks, setChunks] = useState([]);
         const [interimTranslation, setInterimTranslation] = useState('');
+        const [showTranscript, setShowTranscript] = useState(false);
         const listeningRef = useRef(listening);
         const sourceLangRef = useRef(sourceLang);
         const targetLangRef = useRef(targetLang);
@@ -231,8 +240,15 @@
               </button>
             </div>
             <div>
-              <span className="label">Transcript ({sourceLang}):</span>
-              <div className="transcript">{`${finalText}${interimText ? ` [interim] ${interimText}` : ''}`}</div>
+              <span className="label">
+                Transcript ({sourceLang}):
+                <button style={{ marginLeft: '0.5rem' }} onClick={() => setShowTranscript((s) => !s)}>
+                  {showTranscript ? 'Hide' : 'Show'}
+                </button>
+              </span>
+              {showTranscript && (
+                <div className="transcript">{`${finalText}${interimText ? ` [interim] ${interimText}` : ''}`}</div>
+              )}
             </div>
             <div>
               <span className="label">Translation ({targetLang}):</span>

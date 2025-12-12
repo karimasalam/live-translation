@@ -131,6 +131,8 @@
       const targetLangRef = useRef(targetLang);
       const translationRef = useRef(null);
       const recognitionRef = useRef(null);
+      const translateTimeoutRef = useRef(null);
+      const abortControllerRef = useRef(null);
 
       useEffect(() => {
         listeningRef.current = listening;
@@ -176,15 +178,20 @@
             }
           }
           if (finalChunk) {
+            clearTimeout(translateTimeoutRef.current);
+            if (abortControllerRef.current) {
+              abortControllerRef.current.abort();
+            }
             setFinalText((prev) => `${prev} ${finalChunk}`.trim());
             setInterimText('');
             translateText(finalChunk);
           }
           if (interimChunk) {
-            clearTimeout(translateTimeout);
-            translateTimeout = setTimeout(() => {
-              translateText(interimChunk, true);
-            }, 500);
+            //Removed interim to avoid excessive calls
+            //clearTimeout(translateTimeout);
+            //translateTimeout = setTimeout(() => {
+              //translateText(interimChunk, true);
+            //}, 500);
             setInterimText(interimChunk);
           }
         };
@@ -197,7 +204,6 @@
         recognitionRef.current = recognition;
       }, []);
 
-      let translateTimeout;
       useEffect(() => {
         if (translationRef.current) {
           translationRef.current.scrollTop = translationRef.current.scrollHeight;
@@ -219,13 +225,22 @@
 
           const apiKey = new URLSearchParams(window.location.search).get('apiKey') || 'PLEASE_INPUT_YOUR_KEY';
 
+          // Create new AbortController for this request
+          if (replace) {
+            if (abortControllerRef.current) {
+              abortControllerRef.current.abort();
+            }
+            abortControllerRef.current = new AbortController();
+          }
+
           const res = await fetch(`https://translated-mymemory---translation-memory.p.rapidapi.com/get?${params.toString()}`,
             {
               method: 'GET',
               headers: {
                 'x-rapidapi-key': apiKey,
                 'x-rapidapi-host': 'translated-mymemory---translation-memory.p.rapidapi.com'
-              }
+              },
+              signal: replace ? abortControllerRef.current.signal : undefined
             }
           );
           const data = await res.json();
@@ -237,7 +252,11 @@
             setInterimTranslation('');
           }
         } catch (err) {
-          console.error('Translation error', err);
+          if (err.name === 'AbortError') {
+            console.log('Translation request cancelled');
+          } else {
+            console.error('Translation error', err);
+          }
         }
       };
 

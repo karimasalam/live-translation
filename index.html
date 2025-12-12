@@ -1,299 +1,318 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Live Speech Translation</title>
-    <style>
-      body {
-        font-family: Arial, Helvetica, sans-serif;
-        margin: 0;
-        padding: 0;
-        background: #0838CC; /* vivid blue */
-        color: #ffea00; /* brighter yellow */
-      }
-      header {
-        background: #0838CC;
-        color: inherit;
-        padding: 1rem 2rem;
-        text-align: center;
-      }
-      main {
-        margin: 2rem auto;
-        background: transparent;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: none;
-      }
-      .controls {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-      }
-      select,
-      button {
-        padding: 0.5rem 1rem;
-        font-size: 1rem;
-        color: inherit;
-        background: rgba(0, 0, 0, 0.1);
-        border: 1px solid #ffea00;
-        border-radius: 6px;
-      }
-      button:hover {
-        background: rgba(0, 0, 0, 0.2);
-      }
-      .transcript,
-      .translation {
-        border: 1px solid #ffea00;
-        border-radius: 6px;
-        padding: 1rem;
-        min-height: 5rem;
-        white-space: pre-wrap;
-        background: transparent;
-      }
-      .translation {
-        max-height: 80vh !important;
-        min-height: 80vh !important;
-        overflow-y: auto;
-      }
-      .translation p {
-        font-size: 200%;
-        font-weight: bold;
-        margin: 0 0 .75rem;
-        line-height: 1.4;
 
-      }
-      .collapse-toggle {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-      }
-      body.collapsed header,
-      body.collapsed .controls,
-      body.collapsed .transcript,
-      body.collapsed .label {
-        display: none;
-      }
-      .label {
-        font-weight: bold;
-        margin-top: 1rem;
-        margin-bottom: 0.25rem;
-        display: block;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>Live Speech Transcription & Translation</h1>
-    </header>
-    <main>
-      <div id="root"></div>
-    </main>
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Speech Translation</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0838CC;
+      /* vivid blue */
+      color: #ffea00;
+      /* brighter yellow */
+    }
 
-    <!-- React CDN -->
-    <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    header {
+      background: #0838CC;
+      color: inherit;
+      padding: 1rem 2rem;
+      text-align: center;
+    }
 
-    <script type="text/babel">
-      const { useState, useRef, useEffect } = React;
+    main {
+      margin: 2rem auto;
+      background: transparent;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: none;
+    }
 
-      function App() {
-        const [sourceLang, setSourceLang] = useState('ur-PK');
-        const [targetLang, setTargetLang] = useState('en');
-        const [listening, setListening] = useState(false);
-        const [finalText, setFinalText] = useState('');
-        const [interimText, setInterimText] = useState('');
-        const [chunks, setChunks] = useState([]);
-        const [interimTranslation, setInterimTranslation] = useState('');
-        const [showTranscript, setShowTranscript] = useState(false);
-        const [collapsed, setCollapsed] = useState(true);
-        const listeningRef = useRef(listening);
-        const sourceLangRef = useRef(sourceLang);
-        const targetLangRef = useRef(targetLang);
-        const translationRef = useRef(null);
-        const recognitionRef = useRef(null);
+    .controls {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
 
-        useEffect(() => {
-          listeningRef.current = listening;
-        }, [listening]);
+    select,
+    button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      color: inherit;
+      background: rgba(0, 0, 0, 0.1);
+      border: 1px solid #ffea00;
+      border-radius: 6px;
+    }
 
-        useEffect(() => {
-          sourceLangRef.current = sourceLang;
-        }, [sourceLang]);
+    button:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
 
-        useEffect(() => {
-          targetLangRef.current = targetLang;
-        }, [targetLang]);
+    .transcript,
+    .translation {
+      border: 1px solid #ffea00;
+      border-radius: 6px;
+      padding: 1rem;
+      min-height: 5rem;
+      white-space: pre-wrap;
+      background: transparent;
+    }
 
-        useEffect(() => {
-          document.body.classList.toggle('collapsed', collapsed);
-        }, [collapsed]);
+    .translation {
+      max-height: 80vh !important;
+      min-height: 80vh !important;
+      overflow-y: auto;
+    }
 
-        useEffect(() => {
-          if (recognitionRef.current) {
-            recognitionRef.current.lang = sourceLang;
-          }
-        }, [sourceLang]);
+    .translation p {
+      font-size: 200%;
+      font-weight: bold;
+      margin: 0 0 .75rem;
+      line-height: 1.4;
 
-        useEffect(() => {
-          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (!SpeechRecognition) {
-            alert('Your browser does not support Speech Recognition API');
-            return;
-          }
-          const recognition = new SpeechRecognition();
-          recognition.interimResults = true;
-          recognition.continuous = true;
+    }
 
-          recognition.onresult = (event) => {
-            let finalChunk = '';
-            let interimChunk = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              const res = event.results[i];
-              if (res.isFinal) {
-                finalChunk += res[0].transcript;
-              } else {
-                interimChunk += res[0].transcript;
-              }
-            }
-            if (finalChunk) {
-              setFinalText((prev) => `${prev} ${finalChunk}`.trim());
-              setInterimText('');
-              translateText(finalChunk);
-            }
-            if (interimChunk) {
-              clearTimeout(translateTimeout);
-              translateTimeout = setTimeout(() => {
-                translateText(interimChunk, true);
-              }, 500);
-              setInterimText(interimChunk);
-            }
-          };
+    .collapse-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+    }
 
-          recognition.onerror = (e) => console.error('Speech recognition error', e);
-          recognition.onend = () => {
-            if (listeningRef.current) recognition.start();
-          };
+    body.collapsed header,
+    body.collapsed .controls,
+    body.collapsed .transcript,
+    body.collapsed .label {
+      display: none;
+    }
 
-          recognitionRef.current = recognition;
-        }, []);
+    .label {
+      font-weight: bold;
+      margin-top: 1rem;
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+  </style>
+</head>
 
-        let translateTimeout;
-        useEffect(() => {
-          if (translationRef.current) {
-            translationRef.current.scrollTop = translationRef.current.scrollHeight;
-          }
-        }, [chunks, interimTranslation]);
+<body>
+  <header>
+    <h1>Live Speech Transcription & Translation</h1>
+  </header>
+  <main>
+    <div id="root"></div>
+  </main>
 
-        const translateText = async (text, replace = false) => {
-          try {
-            const safeText = text.length > 450 ? text.slice(-450) : text;
-            const src = sourceLangRef.current.split('-')[0];
-            const trg = targetLangRef.current.split('-')[0];
-            const params = new URLSearchParams({
-              langpair: `${src}|${trg}`,
-              q: safeText,
-              mt: '1',
-              onlyprivate: '0',
-              de: 'a@b.c'
-            });
-            const res = await fetch(`https://translated-mymemory---translation-memory.p.rapidapi.com/get?${params.toString()}`,
-              {
-                method: 'GET',
-                headers: {
-                  'x-rapidapi-key': '0587232a1fmsh95ce9e8508eb620p190553jsn4e00c54f8a9b',
-                  'x-rapidapi-host': 'translated-mymemory---translation-memory.p.rapidapi.com'
-                }
-              }
-            );
-            const data = await res.json();
-            const translated = data.responseData ? data.responseData.translatedText : (data.translatedText || '');
-            if (replace) {
-              setInterimTranslation(translated);
+  <!-- React CDN -->
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    function App() {
+      const [sourceLang, setSourceLang] = useState('ur-PK');
+      const [targetLang, setTargetLang] = useState('en');
+      const [listening, setListening] = useState(false);
+      const [finalText, setFinalText] = useState('');
+      const [interimText, setInterimText] = useState('');
+      const [chunks, setChunks] = useState([]);
+      const [interimTranslation, setInterimTranslation] = useState('');
+      const [showTranscript, setShowTranscript] = useState(false);
+      const [collapsed, setCollapsed] = useState(true);
+      const listeningRef = useRef(listening);
+      const sourceLangRef = useRef(sourceLang);
+      const targetLangRef = useRef(targetLang);
+      const translationRef = useRef(null);
+      const recognitionRef = useRef(null);
+
+      useEffect(() => {
+        listeningRef.current = listening;
+      }, [listening]);
+
+      useEffect(() => {
+        sourceLangRef.current = sourceLang;
+      }, [sourceLang]);
+
+      useEffect(() => {
+        targetLangRef.current = targetLang;
+      }, [targetLang]);
+
+      useEffect(() => {
+        document.body.classList.toggle('collapsed', collapsed);
+      }, [collapsed]);
+
+      useEffect(() => {
+        if (recognitionRef.current) {
+          recognitionRef.current.lang = sourceLang;
+        }
+      }, [sourceLang]);
+
+      useEffect(() => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          alert('Your browser does not support Speech Recognition API');
+          return;
+        }
+        const recognition = new SpeechRecognition();
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        recognition.onresult = (event) => {
+          let finalChunk = '';
+          let interimChunk = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              finalChunk += res[0].transcript;
             } else {
-              setChunks((prev) => [...prev, translated]);
-              setInterimTranslation('');
+              interimChunk += res[0].transcript;
             }
-          } catch (err) {
-            console.error('Translation error', err);
+          }
+          if (finalChunk) {
+            setFinalText((prev) => `${prev} ${finalChunk}`.trim());
+            setInterimText('');
+            translateText(finalChunk);
+          }
+          if (interimChunk) {
+            clearTimeout(translateTimeout);
+            translateTimeout = setTimeout(() => {
+              translateText(interimChunk, true);
+            }, 500);
+            setInterimText(interimChunk);
           }
         };
 
-        const toggleListening = () => {
-          if (!recognitionRef.current) return;
-          if (!listening) {
-            recognitionRef.current.lang = sourceLang;
-            recognitionRef.current.start();
+        recognition.onerror = (e) => console.error('Speech recognition error', e);
+        recognition.onend = () => {
+          if (listeningRef.current) recognition.start();
+        };
+
+        recognitionRef.current = recognition;
+      }, []);
+
+      let translateTimeout;
+      useEffect(() => {
+        if (translationRef.current) {
+          translationRef.current.scrollTop = translationRef.current.scrollHeight;
+        }
+      }, [chunks, interimTranslation]);
+
+      const translateText = async (text, replace = false) => {
+        try {
+          const safeText = text.length > 450 ? text.slice(-450) : text;
+          const src = sourceLangRef.current.split('-')[0];
+          const trg = targetLangRef.current.split('-')[0];
+          const params = new URLSearchParams({
+            langpair: `${src}|${trg}`,
+            q: safeText,
+            mt: '1',
+            onlyprivate: '0',
+            de: 'a@b.c'
+          });
+
+          const apiKey = new URLSearchParams(window.location.search).get('apiKey') || 'PLEASE_INPUT_YOUR_KEY';
+
+          const res = await fetch(`https://translated-mymemory---translation-memory.p.rapidapi.com/get?${params.toString()}`,
+            {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-key': apiKey,
+                'x-rapidapi-host': 'translated-mymemory---translation-memory.p.rapidapi.com'
+              }
+            }
+          );
+          const data = await res.json();
+          const translated = data.responseData ? data.responseData.translatedText : (data.translatedText || '');
+          if (replace) {
+            setInterimTranslation(translated);
           } else {
-            recognitionRef.current.stop();
+            setChunks((prev) => [...prev, translated]);
+            setInterimTranslation('');
           }
-          setListening((prev) => !prev);
-        };
+        } catch (err) {
+          console.error('Translation error', err);
+        }
+      };
 
-        const resetAll = () => {
-          if (listening && recognitionRef.current) {
-            recognitionRef.current.stop();
-          }
-          setListening(false);
-          setFinalText('');
-          setInterimText('');
-          setChunks([]);
-          setInterimTranslation('');
-        };
+      const toggleListening = () => {
+        if (!recognitionRef.current) return;
+        if (!listening) {
+          recognitionRef.current.lang = sourceLang;
+          recognitionRef.current.start();
+        } else {
+          recognitionRef.current.stop();
+        }
+        setListening((prev) => !prev);
+      };
 
-        return (
-          <div>
-            <button className="collapse-toggle" onClick={() => setCollapsed((c) => !c)}>
-              {collapsed ? 'Show UI' : 'Hide UI'}
+      const resetAll = () => {
+        if (listening && recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+        setListening(false);
+        setFinalText('');
+        setInterimText('');
+        setChunks([]);
+        setInterimTranslation('');
+      };
+
+      return (
+        <div>
+          <button className="collapse-toggle" onClick={() => setCollapsed((c) => !c)}>
+            {collapsed ? 'Show UI' : 'Hide UI'}
+          </button>
+          <button style={{ position: 'fixed', top: '10px', right: '110px', zIndex: 1000 }} onClick={toggleListening}>
+            {listening ? 'Stop' : 'Start'} Listening
+          </button>
+          <div className="controls">
+            <label>
+              Source Language:&nbsp;
+              <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
+                <option value="ur-PK">Urdu</option>
+                <option value="ar-SA">Arabic</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <label>
+              Target Language:&nbsp;
+              <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+                <option value="en">English</option>
+                <option value="ur-PK">Urdu</option>
+                <option value="ar-SA">Arabic</option>
+              </select>
+            </label>
+            <button onClick={resetAll}>
+              Reset
             </button>
-            <button style={{ position: 'fixed', top: '10px', right: '110px', zIndex: 1000 }} onClick={toggleListening}>
-              {listening ? 'Stop' : 'Start'} Listening
-            </button>
-            <div className="controls">
-              <label>
-                Source Language:&nbsp;
-                <select value={sourceLang} onChange={(e) => setSourceLang(e.target.value)}>
-                   <option value="ur-PK">Urdu</option>
-                   <option value="ar-SA">Arabic</option>
-                   <option value="en">English</option>
-                </select>
-              </label>
-              <label>
-                Target Language:&nbsp;
-                <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
-                  <option value="en">English</option>
-                  <option value="ur-PK">Urdu</option>
-                  <option value="ar-SA">Arabic</option>
-                </select>
-              </label>
-              <button onClick={resetAll}>
-                Reset
-              </button>
-            </div>
-            <div>
-              <span className="label">
-                Transcript ({sourceLang}):
-                <button style={{ marginLeft: '0.5rem' }} onClick={() => setShowTranscript((s) => !s)}>
-                  {showTranscript ? 'Hide' : 'Show'}
-                </button>
-              </span>
-              {showTranscript && (
-                <div className="transcript">{`${finalText}${interimText ? ` [interim] ${interimText}` : ''}`}</div>
-              )}
-            </div>
-            <div>
-              <span className="label">Translation ({targetLang}):</span>
-              <div className="translation" ref={translationRef}>{chunks.map((c, i) => <p key={i}>{c}</p>)}{interimTranslation && <p style={{ opacity: 0.6 }}>{interimTranslation}</p>}</div>
-            </div>
           </div>
-        );
-      }
+          <div>
+            <span className="label">
+              Transcript ({sourceLang}):
+              <button style={{ marginLeft: '0.5rem' }} onClick={() => setShowTranscript((s) => !s)}>
+                {showTranscript ? 'Hide' : 'Show'}
+              </button>
+            </span>
+            {showTranscript && (
+              <div className="transcript">{`${finalText}${interimText ? ` [interim] ${interimText}` : ''}`}</div>
+            )}
+          </div>
+          <div>
+            <span className="label">Translation ({targetLang}):</span>
+            <div className="translation" ref={translationRef}>{chunks.map((c, i) => <p key={i}>{c}</p>)}{interimTranslation && <p style={{ opacity: 0.6 }}>{interimTranslation}</p>}</div>
+          </div>
+        </div>
+      );
+    }
 
-      ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-  </body>
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+
 </html>
